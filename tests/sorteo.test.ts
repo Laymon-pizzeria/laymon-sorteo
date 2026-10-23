@@ -68,11 +68,14 @@ function montar() {
 const persona = (nombreCompleto: string, correo: string, extra: object = {}) => ({ nombreCompleto, edad: 30, genero: 'Mujer', correo, telefono: '5512345678', aviso: true, ...extra });
 const NOMBRES = ['Ana', 'Beto', 'Carla', 'Dani'].map((nombre) => ({ nombre }));
 
+/** AAAA-MM-DD dentro de n días (para fechas válidas sin importar cuándo corran las pruebas) */
+const enDias = (n: number) => new Date(Date.now() + n * 86400_000).toISOString().slice(0, 10);
+
 async function conSorteo() {
   const m = montar();
   const r = await m.s.crearParaEvento({
     nombre: 'Posada de la oficina',
-    fecha: '19 de diciembre',
+    fecha: enDias(40),
     limite: '$300',
     nombres: NOMBRES,
     exclusiones: [{ de: 'Ana', a: 'Beto', ambos: true }],
@@ -226,7 +229,7 @@ describe('sorteo de intercambio de punta a punta', () => {
     await t.s.sortear(t.numero, ana);
     const bloqueada = await t.s.configurar(t.numero, org.token, { nombres: NOMBRES });
     expect(!bloqueada.ok && bloqueada.status).toBe(409);
-    expect((await t.s.configurar(t.numero, org.token, { limite: 500, fecha: '20 de diciembre' })).ok).toBe(true);
+    expect((await t.s.configurar(t.numero, org.token, { limite: 500, fecha: enDias(41) })).ok).toBe(true);
     const est = await t.s.estadoOrganizador(t.numero, org.token);
     expect(est.ok && est.limite).toBe(500);
   });
@@ -280,15 +283,15 @@ describe('sorteo de intercambio de punta a punta', () => {
     expect(contactos[1]).toContain('Lucía Gómez Ruiz'); // el organizador también queda en los contactos
   });
 
-  it('los contactos incluyen a los invitados y respetan quién no quiere promociones', async () => {
+  it('los contactos incluyen a los invitados registrados', async () => {
     const t = await conSorteo();
     await t.registrar('Ana', 'ana@ejemplo.com');
-    await t.registrar('Beto', 'beto@ejemplo.com', { sinPromos: true });
+    await t.registrar('Beto', 'beto@ejemplo.com');
     const filas = await t.s.contactos();
     const ana = filas.find((f) => f[8] === 'ana@ejemplo.com')!;
     const beto = filas.find((f) => f[8] === 'beto@ejemplo.com')!;
-    expect(ana[10]).toBe('Sí');
-    expect(beto[10]).toBe('No');
+    expect(ana).toBeTruthy();
+    expect(beto).toBeTruthy();
   });
 
   it('sin secreto en el servidor, nada abre', async () => {
@@ -303,5 +306,21 @@ describe('sorteo de intercambio de punta a punta', () => {
     const s = crearSorteos({ store: crearStoreMemoria(), secreto: 'x', baseUrl: () => '', enviar: async () => ({ ok: false, detalle: 'HTTP 403' }) });
     const c = await s.iniciarCreacion({ nombre: 'x', nombres: NOMBRES, organizador: persona('Ana Pérez', 'a@b.co') }, '1.1.1.1');
     expect(!c.ok && c.status).toBe(502);
+  });
+});
+
+describe('fecha y reparto', () => {
+  it('rechaza fechas que no existen o ya pasaron', async () => {
+    const m = montar();
+    const base = { nombre: 'Posada', nombres: NOMBRES, organizador: { nombre: 'Olivia Organiza', correo: 'olivia@ejemplo.com', telefono: '5598765432' } };
+    for (const fecha of ['2026-12-34', '19 de diciembre', '2020-01-01']) {
+      const r = await m.s.crearParaEvento({ ...base, fecha });
+      expect(r.ok).toBe(false);
+    }
+    expect((await m.s.crearParaEvento({ ...base, fecha: enDias(10) })).ok).toBe(true);
+  });
+
+  it('nadie puede sacar su propio nombre', () => {
+    expect(funcionPermitido([])('a', 'a')).toBe(false);
   });
 });

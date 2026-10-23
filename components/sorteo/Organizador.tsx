@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { Aviso, Copiar, Marco, ReglasEditor, api, botonLinea, botonRojo, campo, etiqueta, guardarLocal, leerLocal, nombresDeTexto, pesos, tarjeta, type Regla } from './ui';
+import { Aviso, CampoFecha, CampoPresupuesto, Copiar, InvitadosEditor, Marco, api, botonLinea, botonRojo, campo, enlaceInvitado, etiqueta, guardarLocal, leerLocal, nombreRepetido, pesos, reglasDe, tarjeta, type InvitadoEditable } from './ui';
 
 interface Estado {
   numero: string;
@@ -96,12 +96,11 @@ export default function Organizador({ numero }: { numero: string }) {
 
 function Panel({ est, token, recargar, correr, ocupado, error, ok, setOk, salir }: { est: Estado; token: string; recargar: () => Promise<void>; correr: (fn: () => Promise<void>) => Promise<void>; ocupado: boolean; error: string; ok: string; setOk: (s: string) => void; salir: () => void }) {
   const base = `${est.numero}/org`;
-  const nombreDe = (id: string) => est.espacios.find((e) => e.id === id)?.nombre ?? '';
+  const enlace = enlaceInvitado(est.numero);
   const [nombre, setNombre] = useState(est.nombre);
   const [fecha, setFecha] = useState(est.fecha);
   const [limite, setLimite] = useState(est.limite ? String(est.limite) : '');
-  const [nombres, setNombres] = useState(est.espacios.map((e) => e.nombre).join('\n'));
-  const [reglas, setReglas] = useState<Regla[]>(est.exclusiones.map((x) => ({ de: nombreDe(x.de), a: nombreDe(x.a), ambos: false })));
+  const [invitados, setInvitados] = useState<InvitadoEditable[]>(est.espacios.map((e) => ({ k: e.id, nombre: e.nombre, no: est.exclusiones.filter((x) => x.de === e.id).map((x) => x.a) })));
   const [codigoPedido, setCodigoPedido] = useState(false);
   const [codigo, setCodigo] = useState('');
   const [pares, setPares] = useState<{ dador: string; receptor: string | null }[] | null>(null);
@@ -109,14 +108,16 @@ function Panel({ est, token, recargar, correr, ocupado, error, ok, setOk, salir 
   const total = est.espacios.length;
   const registrados = est.espacios.filter((e) => e.registrado).length;
   const sortearon = est.espacios.filter((e) => e.sorteo).length;
-  const mensajeWa = `Hola, te invito a mi intercambio "${est.nombre}". Regístrate y saca tu nombre aquí: ${est.enlace} (número de sorteo ${est.numero})`;
+  const mensajeWa = `Hola, te invito a mi intercambio "${est.nombre}". Regístrate y saca tu nombre aquí: ${enlace} (número de sorteo ${est.numero})`;
 
   const guardar = () =>
     correr(async () => {
       const cuerpo: Record<string, unknown> = { nombre, fecha, limite };
       if (!est.bloqueado) {
-        cuerpo.nombres = nombresDeTexto(nombres).map((n) => ({ nombre: n }));
-        cuerpo.exclusiones = reglas;
+        const repetido = nombreRepetido(invitados);
+        if (repetido) throw new Error(`“${repetido}” está repetido. Agrega una inicial para distinguirlos.`);
+        cuerpo.nombres = invitados.filter((x) => x.nombre.trim()).map((x) => ({ nombre: x.nombre.replace(/\s+/g, ' ').trim() }));
+        cuerpo.exclusiones = reglasDe(invitados);
       }
       await api(base, { metodo: 'PUT', cuerpo, token });
       await recargar();
@@ -131,9 +132,9 @@ function Panel({ est, token, recargar, correr, ocupado, error, ok, setOk, salir 
       <section className={tarjeta}>
         <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Invita a tu gente</h2>
         <p className="m-0 mt-2 font-chelsea text-[13px] leading-snug text-lm-gray">Cada invitado se registra en este enlace, escribe su lista de deseos y saca su nombre.</p>
-        <input readOnly className={`${campo} mt-3`} value={est.enlace} onFocus={(e) => e.currentTarget.select()} aria-label="Enlace para tus invitados" />
+        <input readOnly className={`${campo} mt-3`} value={enlace} onFocus={(e) => e.currentTarget.select()} aria-label="Enlace para tus invitados" />
         <div className="mt-3 flex flex-wrap gap-2">
-          <Copiar texto={est.enlace} etiqueta="Copiar enlace" />
+          <Copiar texto={enlace} etiqueta="Copiar enlace" />
           <a className={botonLinea} target="_blank" rel="noopener noreferrer" href={`https://api.whatsapp.com/send/?text=${encodeURIComponent(mensajeWa)}`}>Compartir por WhatsApp</a>
         </div>
       </section>
@@ -176,19 +177,15 @@ function Panel({ est, token, recargar, correr, ocupado, error, ok, setOk, salir 
           <div className="grid grid-cols-2 gap-3">
             <label>
               <span className={etiqueta}>Fecha del intercambio</span>
-              <input className={campo} value={fecha} onChange={(e) => setFecha(e.target.value)} placeholder="19 de diciembre" />
+              <CampoFecha valor={fecha} onChange={setFecha} />
             </label>
             <label>
-              <span className={etiqueta}>Límite de gasto ($)</span>
-              <input className={campo} inputMode="numeric" value={limite} onChange={(e) => setLimite(e.target.value)} placeholder="300" />
+              <span className={etiqueta}>Presupuesto límite para el regalo ($)</span>
+              <CampoPresupuesto valor={limite} onChange={setLimite} />
             </label>
           </div>
           {est.bloqueado && <Aviso tipo="alerta">Ya empezó el sorteo: la lista y las reglas quedaron fijas. El nombre, la fecha y el límite todavía se pueden cambiar.</Aviso>}
-          <label>
-            <span className={etiqueta}>Invitados (uno por línea)</span>
-            <textarea className={`${campo} min-h-[150px]`} rows={7} value={nombres} onChange={(e) => setNombres(e.target.value)} disabled={est.bloqueado} />
-          </label>
-          <ReglasEditor nombres={nombresDeTexto(nombres)} reglas={reglas} onChange={setReglas} bloqueado={est.bloqueado} />
+          <InvitadosEditor valor={invitados} onChange={setInvitados} bloqueado={est.bloqueado} />
           <button className={botonRojo} onClick={guardar} disabled={ocupado}>{ocupado ? 'Guardando…' : 'Guardar cambios'}</button>
         </div>
       </section>

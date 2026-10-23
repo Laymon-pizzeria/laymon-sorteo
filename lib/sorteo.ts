@@ -138,6 +138,18 @@ export function validarMonto(v: unknown): number | null | { error: string } {
   return Math.round(n);
 }
 
+/** Fecha del intercambio: vacía o AAAA-MM-DD real, de hoy a 3 años. `hoy` en ms (se tolera un día de diferencia por zona horaria). */
+export function validarFecha(v: unknown, hoy: number): string | { error: string } {
+  if (v === undefined || v === null || v === '') return '';
+  const t = String(v).trim();
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  const d = m ? new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])) : null;
+  if (!m || !d || d.getUTCFullYear() !== +m[1] || d.getUTCMonth() !== +m[2] - 1 || d.getUTCDate() !== +m[3]) return { error: 'Esa fecha no existe. Elígela del calendario.' };
+  if (d.getTime() < hoy - 36 * 3600_000) return { error: 'La fecha del intercambio ya pasó.' };
+  if (d.getTime() > hoy + 3 * 366 * 86400_000) return { error: 'La fecha está muy lejos. Elige una dentro de los próximos 3 años.' };
+  return t;
+}
+
 export interface Persona {
   nombreCompleto: string;
   edad: number;

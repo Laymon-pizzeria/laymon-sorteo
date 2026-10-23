@@ -11,7 +11,7 @@ import {
   normalizarClave,
   normalizarNumero,
   validarConfig,
-  validarMonto,
+  validarMonto, validarFecha,
   validarPersona,
   type Espacio,
   type Exclusion,
@@ -195,6 +195,8 @@ export function crearSorteos(deps: DepsSorteo) {
     if ('error' in config) return fallo(400, config.error);
     const limite = validarMonto(entrada.limite);
     if (limite !== null && typeof limite === 'object') return fallo(400, limite.error);
+    const fecha = validarFecha(entrada.fecha, ahora());
+    if (typeof fecha === 'object') return fallo(400, fecha.error);
     const clave = claveElegida ? normalizarClave(claveElegida) : generarClaveOrganizador(deps.azar);
     if (clave.length < 6) return fallo(400, 'La clave de organizador debe tener al menos 6 letras o números.');
     return {
@@ -205,7 +207,7 @@ export function crearSorteos(deps: DepsSorteo) {
         nombre,
         tipo,
         creadoEn: ahora(),
-        fecha: limpiar(entrada.fecha, 60),
+        fecha,
         limite: limite as number | null,
         organizador: { ...organizador, claveHash: sha(`clave|${clave}`) },
         espacios: config.espacios,
@@ -469,9 +471,11 @@ export function crearSorteos(deps: DepsSorteo) {
         if (!nombre) return fallo(400, 'Ponle un nombre a tu evento.');
         const limite = entrada.limite === undefined ? s.limite : validarMonto(entrada.limite);
         if (limite !== null && typeof limite === 'object') return fallo(400, limite.error);
+        const fecha = entrada.fecha === undefined ? s.fecha : validarFecha(entrada.fecha, ahora());
+        if (typeof fecha === 'object') return fallo(400, fecha.error);
         s.nombre = nombre;
         s.limite = limite as number | null;
-        if (entrada.fecha !== undefined) s.fecha = limpiar(entrada.fecha, 60);
+        s.fecha = fecha;
         if (entrada.nombres !== undefined || entrada.exclusiones !== undefined) {
           if (s.bloqueado) return fallo(409, 'Ya empezó el sorteo: la lista y las reglas no se pueden mover.');
           const actuales = s.espacios.map((e) => ({ id: e.id, nombre: e.nombre }));
@@ -546,9 +550,9 @@ export function crearSorteos(deps: DepsSorteo) {
       const numeros = await store.zrevrange(K.indice, 1000);
       const sorteos = (await store.mget<Sorteo>(numeros.map(K.sorteo))).filter(Boolean) as Sorteo[];
       const fila = (s: Sorteo, rol: string, p: { nombreCompleto: string; edad: number; genero: string; correo: string; telefono: string; sinPromos: boolean }, cuando: number, lista = '') => [
-        s.numero, s.nombre, s.tipo === 'laymon' ? 'Evento Laymon' : 'Personal', rol, lista, p.nombreCompleto, String(p.edad), p.genero, p.correo, p.telefono, p.sinPromos ? 'No' : 'Sí', new Date(cuando).toISOString().slice(0, 10),
+        s.numero, s.nombre, s.tipo === 'laymon' ? 'Evento Laymon' : 'Personal', rol, lista, p.nombreCompleto, String(p.edad), p.genero, p.correo, p.telefono, new Date(cuando).toISOString().slice(0, 10),
       ];
-      const filas: string[][] = [['Sorteo', 'Evento', 'Tipo', 'Rol', 'Nombre en lista', 'Nombre completo', 'Edad', 'Género', 'Correo', 'Teléfono', 'Acepta promociones', 'Fecha']];
+      const filas: string[][] = [['Sorteo', 'Evento', 'Tipo', 'Rol', 'Nombre en lista', 'Nombre completo', 'Edad', 'Género', 'Correo', 'Teléfono', 'Fecha']];
       for (const s of sorteos) {
         if (s.tipo === 'personal') filas.push(fila(s, 'Organizador', s.organizador, s.creadoEn));
         for (const i of Object.values(s.invitados)) filas.push(fila(s, 'Invitado', i, i.registradoEn, nombreDe(s, i.espacio)));

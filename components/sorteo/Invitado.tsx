@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { Aviso, GENEROS, Marco, api, botonLinea, botonRojo, campo, etiqueta, guardarLocal, leerLocal, pesos, tarjeta } from './ui';
+import { Aviso, GENEROS, Marco, api, botonLinea, botonRojo, campo, etiqueta, guardarLocal, leerLocal, pesos, tarjeta, fechaBonita } from './ui';
 
 interface Info {
   nombre: string;
@@ -40,7 +40,7 @@ export default function Invitado({ numero }: { numero: string }) {
   const [ocupado, setOcupado] = useState(false);
 
   // formulario de registro
-  const [f, setF] = useState({ espacio: '', nombreCompleto: '', edad: '', genero: '', correo: '', telefono: '', aviso: false, sinPromos: false });
+  const [f, setF] = useState({ espacio: '', nombreCompleto: '', edad: '', genero: '', correo: '', telefono: '', aviso: false });
   const [codigo, setCodigo] = useState('');
   const [tipoCodigo, setTipoCodigo] = useState<'registro' | 'entrar'>('registro');
 
@@ -98,7 +98,7 @@ export default function Invitado({ numero }: { numero: string }) {
       <p className="m-0 font-chelsea text-[11px] uppercase tracking-[0.12em] text-lm-gray">Sorteo {numero}</p>
       <h2 className="m-0 mt-1 font-brick text-[30px] font-normal leading-none">{info.nombre}</h2>
       <p className="m-0 mt-2 font-chelsea text-[14px] text-lm-gray">
-        {info.fecha ? `${info.fecha} · ` : ''}
+        {info.fecha ? `${fechaBonita(info.fecha)} · ` : ''}
         {info.limite ? `Regalo de hasta ${pesos(info.limite)}` : 'Sin límite de gasto'}
       </p>
     </div>
@@ -225,10 +225,6 @@ export default function Invitado({ numero }: { numero: string }) {
               Leí y acepto el <Link href="/privacidad" target="_blank" className="text-lm-red underline">aviso de privacidad</Link>.
             </span>
           </label>
-          <label className="flex items-start gap-2 font-chelsea text-[13px] leading-snug text-lm-gray">
-            <input type="checkbox" className="mt-1" checked={f.sinPromos} onChange={(e) => setF({ ...f, sinPromos: e.target.checked })} />
-            <span>No quiero recibir promociones de Laymon (puedes cambiar de opinión cuando quieras).</span>
-          </label>
           <button className={botonRojo} disabled={ocupado || !listo}>{ocupado ? 'Mandando…' : 'Mandar código a mi correo'}</button>
           <button type="button" className={botonLinea} onClick={() => { setError(''); setVista('inicio'); }}>Volver</button>
         </form>
@@ -298,7 +294,7 @@ function Panel({ numero, token, yo, recargar, salir }: { numero: string; token: 
   };
 
   return (
-    <Marco titulo={<>Hola,<br /><span className="text-lm-red">{yo.nombre}</span></>} pose={yo.yaSorteo ? 'tabla-en-alto' : 'equilibrio'} subtitulo={`${yo.evento}${yo.fecha ? ` · ${yo.fecha}` : ''}`}>
+    <Marco titulo={<>Hola,<br /><span className="text-lm-red">{yo.nombre}</span></>} pose={yo.yaSorteo ? 'tabla-en-alto' : 'equilibrio'} subtitulo={`${yo.evento}${yo.fecha ? ` · ${fechaBonita(yo.fecha)}` : ''}`}>
       {msg && <Aviso tipo={msg.tipo}>{msg.texto}</Aviso>}
 
       <section className={tarjeta}>
@@ -362,7 +358,7 @@ function Panel({ numero, token, yo, recargar, salir }: { numero: string; token: 
                 <div className="rounded-lm border border-lm-border bg-lm-cream p-4">
                   <p className="m-0 font-chelsea text-[11px] uppercase tracking-[0.12em] text-lm-gray">Presupuesto</p>
                   <p className="m-0 mt-1 font-brick text-[28px] leading-none">{rev.limite ? `Hasta ${pesos(rev.limite)}` : 'Sin límite de gasto'}</p>
-                  {rev.fecha && <p className="m-0 mt-2 font-chelsea text-[13px] text-lm-gray">Intercambio: {rev.fecha}</p>}
+                  {rev.fecha && <p className="m-0 mt-2 font-chelsea text-[13px] text-lm-gray">Intercambio: {fechaBonita(rev.fecha)}</p>}
                 </div>
                 <div className="rounded-lm border border-lm-border bg-lm-cream p-4">
                   <p className="m-0 font-chelsea text-[11px] uppercase tracking-[0.12em] text-lm-gray">Lista de deseos de {rev.nombre}</p>
