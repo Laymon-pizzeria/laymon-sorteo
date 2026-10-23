@@ -30,7 +30,7 @@ export default function Privacidad() {
         <b>Para que funcione el sorteo:</b> confirmar que tu correo es tuyo, mandarte códigos y avisos, guardar tu lugar y tu resultado, y mostrar tu lista de deseos a la persona que te toque.
       </p>
       <p className={p}>
-        <b>Para conocer y contactar a nuestros clientes:</b> hacer estadísticas, mandarte promociones, novedades y ofertas de Laymon por correo, teléfono o WhatsApp. Si no quieres esto, márcalo al registrarte (“No quiero recibir promociones”) o escríbenos por WhatsApp y lo quitamos; el sorteo funciona igual.
+        <b>Para conocer y contactar a nuestros clientes:</b> hacer estadísticas, mandarte promociones, novedades y ofertas de Laymon por correo, teléfono o WhatsApp. Si no quieres recibirlas, escríbenos por WhatsApp y te quitamos de la lista; el sorteo funciona igual.
       </p>
 
       <h2 className={h2}>Quién ve tus datos</h2>

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Aviso, Copiar, ReglasEditor, botonLinea, botonRojo, campo, etiqueta, nombresDeTexto, tarjeta, type Regla } from './ui';
+import { Aviso, CampoFecha, CampoPresupuesto, Copiar, InvitadosEditor, botonLinea, botonRojo, campo, etiqueta, invitadosVacios, nombresDe, reglasDe, tarjeta } from './ui';
 
 const CLAVE_LS = 'laymon-sorteo-clave';
 
@@ -28,8 +28,8 @@ export default function Admin() {
   const [error, setError] = useState('');
   const [creado, setCreado] = useState<{ numero: string; clave: string; enlace: string } | null>(null);
   const [ocupado, setOcupado] = useState(false);
-  const [f, setF] = useState({ nombre: '', fecha: '', limite: '', nombres: '', orgNombre: '', orgCorreo: '', orgTelefono: '', clave: '' });
-  const [reglas, setReglas] = useState<Regla[]>([]);
+  const [f, setF] = useState({ nombre: '', fecha: '', limite: '', orgNombre: '', orgCorreo: '', orgTelefono: '', clave: '' });
+  const [invitados, setInvitados] = useState(invitadosVacios);
 
   const llamar = useCallback(
     async (init?: RequestInit, query = '') => {
@@ -82,8 +82,8 @@ export default function Admin() {
           nombre: f.nombre,
           fecha: f.fecha,
           limite: f.limite,
-          nombres: nombresDeTexto(f.nombres).map((n) => ({ nombre: n })),
-          exclusiones: reglas,
+          nombres: nombresDe(invitados).map((n) => ({ nombre: n })),
+          exclusiones: reglasDe(invitados),
           clave: f.clave,
           organizador: { nombre: f.orgNombre, correo: f.orgCorreo, telefono: f.orgTelefono },
         }),
@@ -111,8 +111,7 @@ export default function Admin() {
     }
   };
 
-  const nombres = nombresDeTexto(f.nombres);
-  if (!clave) {
+    if (!clave) {
     return (
       <main className="mx-auto min-h-screen max-w-[420px] px-4 pt-10">
         <img src="/img/laymon-rojo.svg" alt="Laymon" className="h-[48px] w-auto" />
@@ -184,11 +183,10 @@ export default function Admin() {
           <form className="mt-3 grid gap-3" onSubmit={crear}>
             <label><span className={etiqueta}>Nombre del evento</span><input className={campo} value={f.nombre} onChange={(e) => setF({ ...f, nombre: e.target.value })} required /></label>
             <div className="grid grid-cols-2 gap-3">
-              <label><span className={etiqueta}>Fecha del intercambio</span><input className={campo} value={f.fecha} onChange={(e) => setF({ ...f, fecha: e.target.value })} /></label>
-              <label><span className={etiqueta}>Límite de gasto ($)</span><input className={campo} inputMode="numeric" value={f.limite} onChange={(e) => setF({ ...f, limite: e.target.value })} /></label>
+              <label><span className={etiqueta}>Fecha del intercambio</span><CampoFecha valor={f.fecha} onChange={(v) => setF({ ...f, fecha: v })} /></label>
+              <label><span className={etiqueta}>Presupuesto límite para el regalo ($)</span><CampoPresupuesto valor={f.limite} onChange={(v) => setF({ ...f, limite: v })} /></label>
             </div>
-            <label><span className={etiqueta}>Invitados (uno por línea; el organizador los puede cambiar)</span><textarea className={`${campo} min-h-[120px]`} value={f.nombres} onChange={(e) => setF({ ...f, nombres: e.target.value })} /></label>
-            <ReglasEditor nombres={nombres} reglas={reglas} onChange={setReglas} />
+            <InvitadosEditor valor={invitados} onChange={setInvitados} />
             <label><span className={etiqueta}>Organizador: nombre completo</span><input className={campo} value={f.orgNombre} onChange={(e) => setF({ ...f, orgNombre: e.target.value })} required /></label>
             <div className="grid grid-cols-2 gap-3">
               <label><span className={etiqueta}>Correo</span><input className={campo} type="email" value={f.orgCorreo} onChange={(e) => setF({ ...f, orgCorreo: e.target.value })} required /></label>

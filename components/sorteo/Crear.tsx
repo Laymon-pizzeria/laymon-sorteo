@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useState } from 'react';
-import { Aviso, Copiar, GENEROS, Marco, ReglasEditor, api, botonLinea, botonRojo, campo, etiqueta, guardarLocal, nombresDeTexto, tarjeta, type Regla } from './ui';
+import { Aviso, CampoFecha, CampoPresupuesto, Copiar, GENEROS, InvitadosEditor, Marco, api, botonLinea, botonRojo, campo, enlaceInvitado, etiqueta, guardarLocal, invitadosVacios, nombreRepetido, nombresDe, reglasDe, tarjeta } from './ui';
 
 interface Listo {
   numero: string;
@@ -14,9 +14,9 @@ interface Listo {
 /** Cualquiera puede armar su propio intercambio: se verifica su correo y recibe número y clave de organizador. */
 export default function Crear() {
   const [paso, setPaso] = useState<'datos' | 'codigo' | 'listo'>('datos');
-  const [f, setF] = useState({ nombreCompleto: '', edad: '', genero: '', correo: '', telefono: '', aviso: false, sinPromos: false });
-  const [e, setE] = useState({ nombre: '', fecha: '', limite: '', nombres: '' });
-  const [reglas, setReglas] = useState<Regla[]>([]);
+  const [f, setF] = useState({ nombreCompleto: '', edad: '', genero: '', correo: '', telefono: '', aviso: false });
+  const [e, setE] = useState({ nombre: '', fecha: '', limite: '' });
+  const [invitados, setInvitados] = useState(invitadosVacios);
   const [codigo, setCodigo] = useState('');
   const [listo, setListo] = useState<Listo | null>(null);
   const [error, setError] = useState('');
@@ -35,6 +35,7 @@ export default function Crear() {
   };
 
   if (paso === 'listo' && listo) {
+    listo.enlace = enlaceInvitado(listo.numero);
     const wa = `Hola, te invito a mi intercambio "${listo.nombre}". Regístrate y saca tu nombre aquí: ${listo.enlace} (número de sorteo ${listo.numero})`;
     return (
       <Marco titulo={<>¡Listo,<br /><span className="text-lm-red">a sortear!</span></>} pose="navidad" subtitulo="También te mandamos esto a tu correo. Guarda tu clave: es la llave de organizador.">
@@ -87,8 +88,9 @@ export default function Crear() {
     );
   }
 
-  const nombres = nombresDeTexto(e.nombres);
-  const completo = e.nombre && nombres.length >= 3 && f.nombreCompleto && f.edad && f.genero && f.correo && f.telefono && f.aviso;
+  const nombres = nombresDe(invitados);
+  const repetido = nombreRepetido(invitados);
+  const completo = e.nombre && nombres.length >= 3 && !repetido && f.nombreCompleto && f.edad && f.genero && f.correo && f.telefono && f.aviso;
   return (
     <Marco titulo={<>Crea tu<br /><span className="text-lm-red">sorteo</span></>} pose="kickflip" subtitulo="Para posadas, familia, oficina o amigos. Tú lo organizas, cada invitado saca su nombre y nadie ve lo que no le toca.">
       {error && <Aviso>{error}</Aviso>}
@@ -103,7 +105,7 @@ export default function Crear() {
                 fecha: e.fecha,
                 limite: e.limite,
                 nombres: nombres.map((n) => ({ nombre: n })),
-                exclusiones: reglas,
+                exclusiones: reglasDe(invitados),
                 organizador: { ...f, edad: Number(f.edad) },
               },
             });
@@ -120,19 +122,15 @@ export default function Crear() {
           <div className="grid grid-cols-2 gap-3">
             <label>
               <span className={etiqueta}>Fecha del intercambio</span>
-              <input className={campo} value={e.fecha} onChange={(x) => setE({ ...e, fecha: x.target.value })} placeholder="19 de diciembre" />
+              <CampoFecha valor={e.fecha} onChange={(v) => setE({ ...e, fecha: v })} />
             </label>
             <label>
-              <span className={etiqueta}>Límite de gasto ($)</span>
-              <input className={campo} inputMode="numeric" value={e.limite} onChange={(x) => setE({ ...e, limite: x.target.value })} placeholder="300" />
+              <span className={etiqueta}>Presupuesto límite para el regalo ($)</span>
+              <CampoPresupuesto valor={e.limite} onChange={(v) => setE({ ...e, limite: v })} />
             </label>
           </div>
-          <label>
-            <span className={etiqueta}>Invitados (uno por línea, mínimo 3)</span>
-            <textarea className={`${campo} min-h-[150px]`} rows={7} value={e.nombres} onChange={(x) => setE({ ...e, nombres: x.target.value })} placeholder={'Ana\nBeto\nCarla\nDani'} />
-          </label>
-          <p className="m-0 font-chelsea text-[12px] text-lm-gray">Si dos personas se llaman igual, agrega una inicial: “Ana M.” y “Ana R.”. {nombres.length > 0 && `Llevas ${nombres.length}.`}</p>
-          <ReglasEditor nombres={nombres} reglas={reglas} onChange={setReglas} />
+          <InvitadosEditor valor={invitados} onChange={setInvitados} />
+          {repetido && <Aviso tipo="alerta">“{repetido}” está repetido. Agrega una inicial para distinguirlos.</Aviso>}
         </section>
 
         <section className={`${tarjeta} grid gap-3`}>
@@ -167,10 +165,6 @@ export default function Crear() {
           <label className="flex items-start gap-2 font-chelsea text-[13px] leading-snug">
             <input type="checkbox" className="mt-1" checked={f.aviso} onChange={(x) => setF({ ...f, aviso: x.target.checked })} />
             <span>Leí y acepto el <Link href="/privacidad" target="_blank" className="text-lm-red underline">aviso de privacidad</Link>.</span>
-          </label>
-          <label className="flex items-start gap-2 font-chelsea text-[13px] leading-snug text-lm-gray">
-            <input type="checkbox" className="mt-1" checked={f.sinPromos} onChange={(x) => setF({ ...f, sinPromos: x.target.checked })} />
-            <span>No quiero recibir promociones de Laymon.</span>
           </label>
         </section>
         <button className={botonRojo} disabled={ocupado || !completo}>{ocupado ? 'Mandando…' : 'Mandar código a mi correo'}</button>

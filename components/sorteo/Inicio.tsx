@@ -10,6 +10,11 @@ export default function Inicio() {
   const [numero, setNumero] = useState('');
   return (
     <Marco titulo={<>Sorteo de<br /><span className="text-lm-red">intercambio</span></>} pose="navidad" subtitulo="Regala sin spoilers. Cada quien saca su nombre en su celular, con su lista de deseos y el límite de gasto, y nadie ve lo que no le toca.">
+      <div className={`${tarjeta} grid gap-3`}>
+        <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Quiero organizar un sorteo</h2>
+        <p className="m-0 font-chelsea text-[14px] leading-snug text-lm-gray">Para tu posada, tu familia o tu oficina. Pones los nombres, las reglas y el límite de gasto. Es gratis.</p>
+        <Link href="/nuevo" className={`${botonLinea} text-center`}>Crear mi sorteo</Link>
+      </div>
       <form
         className={`${tarjeta} grid gap-3`}
         onSubmit={(e) => {
@@ -18,18 +23,13 @@ export default function Inicio() {
           if (n) router.push(`/${n}`);
         }}
       >
-        <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Ya tengo un número de sorteo</h2>
+        <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Ya tengo un folio de evento</h2>
         <label>
-          <span className={etiqueta}>Número de sorteo</span>
+          <span className={etiqueta}>Folio del evento</span>
           <input className={`${campo} text-center font-brick text-[28px] uppercase tracking-[0.2em]`} value={numero} onChange={(e) => setNumero(e.target.value)} maxLength={12} autoCapitalize="characters" autoComplete="off" placeholder="K7MQ4X" />
         </label>
         <button className={botonRojo} disabled={!numero.trim()}>Entrar</button>
       </form>
-      <div className={`${tarjeta} grid gap-3`}>
-        <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Quiero organizar uno</h2>
-        <p className="m-0 font-chelsea text-[14px] leading-snug text-lm-gray">Para tu posada, tu familia o tu oficina. Pones los nombres, las reglas y el límite de gasto. Es gratis.</p>
-        <Link href="/nuevo" className={`${botonLinea} text-center`}>Crear mi sorteo</Link>
-      </div>
     </Marco>
   );
 }

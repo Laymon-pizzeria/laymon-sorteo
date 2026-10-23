@@ -169,3 +169,112 @@ export function ReglasEditor({ nombres, reglas, onChange, bloqueado }: { nombres
 }
 
 export const nombresDeTexto = (t: string) => t.split('\n').map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean);
+
+/** Fecha para mostrar: AAAA-MM-DD -> "19 de diciembre de 2026". Lo que no tenga ese formato (eventos viejos) se deja tal cual. */
+export function fechaBonita(f: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(f);
+  if (!m) return f;
+  return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3])).toLocaleDateString('es-MX', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
+}
+
+const aISO = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Calendario real: solo fechas desde hoy hasta dentro de 3 años, así no se puede poner "34 de diciembre". */
+export function CampoFecha({ valor, onChange, disabled }: { valor: string; onChange: (v: string) => void; disabled?: boolean }) {
+  const hoy = new Date();
+  const max = new Date(hoy.getFullYear() + 3, hoy.getMonth(), hoy.getDate());
+  return <input className={campo} type="date" min={aISO(hoy)} max={aISO(max)} value={/^\d{4}-\d{2}-\d{2}$/.test(valor) ? valor : ''} onChange={(e) => onChange(e.target.value)} disabled={disabled} aria-label="Fecha del intercambio" />;
+}
+
+/** Presupuesto con el signo de pesos puesto. */
+export function CampoPresupuesto({ valor, onChange }: { valor: string; onChange: (v: string) => void }) {
+  return (
+    <div className="relative">
+      <span aria-hidden="true" className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 font-chelsea text-[16px] text-lm-gray">$</span>
+      <input className={`${campo} pl-7`} inputMode="numeric" value={valor} onChange={(e) => onChange(e.target.value.replace(/[^0-9]/g, '').slice(0, 6))} placeholder="300" aria-label="Presupuesto límite para el regalo en pesos" />
+    </div>
+  );
+}
+
+/** Enlace para invitados: siempre el dominio desde el que se está usando la página (nunca queda roto). */
+export const enlaceInvitado = (numero: string) => (typeof window === 'undefined' ? `/${numero}` : `${window.location.origin}/${numero}`);
+
+export interface InvitadoEditable {
+  /** Identificador estable en pantalla (el id del lugar si ya existe) */
+  k: string;
+  nombre: string;
+  /** k de las personas a las que NO le puede regalar */
+  no: string[];
+}
+
+let contador = 0;
+export const nuevoInvitado = (nombre = ''): InvitadoEditable => ({ k: `n${Date.now().toString(36)}${contador++}`, nombre, no: [] });
+export const invitadosVacios = (n = 3) => Array.from({ length: n }, () => nuevoInvitado());
+
+export const nombresDe = (v: InvitadoEditable[]) => v.map((x) => x.nombre.replace(/\s+/g, ' ').trim()).filter(Boolean);
+export const nombreRepetido = (v: InvitadoEditable[]): string | null => {
+  const vistos = new Set<string>();
+  for (const n of nombresDe(v)) {
+    const l = n.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    if (vistos.has(l)) return n;
+    vistos.add(l);
+  }
+  return null;
+};
+/** Las reglas que entiende el servidor, armadas desde las casillas por invitado */
+export const reglasDe = (v: InvitadoEditable[]): Regla[] =>
+  v.flatMap((x) => (x.nombre.trim() ? x.no.flatMap((k) => { const o = v.find((y) => y.k === k); return o && o.nombre.trim() ? [{ de: x.nombre.replace(/\s+/g, ' ').trim(), a: o.nombre.replace(/\s+/g, ' ').trim(), ambos: false }] : []; }) : []));
+
+/** Una casilla por invitado; en cada una se marca a quién NO le puede tocar. Nadie se saca a sí mismo, eso ya va de fábrica. */
+export function InvitadosEditor({ valor, onChange, bloqueado }: { valor: InvitadoEditable[]; onChange: (v: InvitadoEditable[]) => void; bloqueado?: boolean }) {
+  const [abierto, setAbierto] = useState<string | null>(null);
+  const cambiar = (k: string, f: (x: InvitadoEditable) => InvitadoEditable) => onChange(valor.map((x) => (x.k === k ? f(x) : x)));
+  const quitar = (k: string) => onChange(valor.filter((x) => x.k !== k).map((x) => ({ ...x, no: x.no.filter((y) => y !== k) })));
+  const total = nombresDe(valor).length;
+  return (
+    <div>
+      <span className={etiqueta}>Invitados (mínimo 3)</span>
+      <ul className="m-0 grid list-none gap-2 p-0">
+        {valor.map((x, i) => {
+          const otros = valor.filter((y) => y.k !== x.k && y.nombre.trim());
+          return (
+            <li key={x.k} className="rounded-lm border border-lm-border bg-white p-2">
+              <div className="flex items-center gap-2">
+                <span aria-hidden="true" className="w-6 text-center font-brick text-[18px] text-lm-gray">{i + 1}</span>
+                <input className={campo} value={x.nombre} onChange={(e) => cambiar(x.k, (y) => ({ ...y, nombre: e.target.value.slice(0, 40) }))} placeholder={['Ana', 'Beto', 'Carla'][i] ?? 'Nombre del invitado'} aria-label={`Invitado ${i + 1}`} disabled={bloqueado} autoComplete="off" />
+                {!bloqueado && valor.length > 3 && (
+                  <button type="button" aria-label={`Quitar a ${x.nombre || `invitado ${i + 1}`}`} onClick={() => quitar(x.k)} className="cursor-pointer border-0 bg-transparent px-2 font-chelsea text-[22px] leading-none text-lm-red">×</button>
+                )}
+              </div>
+              {x.nombre.trim() && otros.length > 0 && (
+                <div className="mt-1 pl-8">
+                  <button type="button" onClick={() => setAbierto(abierto === x.k ? null : x.k)} className="cursor-pointer border-0 bg-transparent p-0 font-chelsea text-[12px] text-lm-gray underline" aria-expanded={abierto === x.k}>
+                    {x.no.length ? `No le puede tocar: ${x.no.map((k) => valor.find((y) => y.k === k)?.nombre).filter(Boolean).join(', ')}` : 'A alguien no le puede tocar (opcional)'}
+                  </button>
+                  {abierto === x.k && (
+                    <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label={`A quién no le puede regalar ${x.nombre}`}>
+                      {otros.map((o) => {
+                        const on = x.no.includes(o.k);
+                        return (
+                          <button key={o.k} type="button" disabled={bloqueado} aria-pressed={on} onClick={() => cambiar(x.k, (y) => ({ ...y, no: on ? y.no.filter((k) => k !== o.k) : [...y.no, o.k] }))} className={`cursor-pointer rounded-full border px-3 py-1 font-chelsea text-[13px] ${on ? 'border-lm-red bg-lm-red text-white' : 'border-[#d9d3cb] bg-white text-lm-black'}`}>
+                            {o.nombre}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {!bloqueado && (
+        <button type="button" className={`${botonLinea} mt-2`} disabled={valor.length >= 60} onClick={() => onChange([...valor, nuevoInvitado()])}>+ Agregar invitado</button>
+      )}
+      <p className="m-0 mt-2 font-chelsea text-[12px] leading-snug text-lm-gray">
+        {total > 0 && `Llevas ${total}. `}Nadie puede sacar su propio nombre. Si Ana no le puede regalar a Beto, márcalo en la casilla de Ana (y en la de Beto si va para los dos lados). Si dos se llaman igual, agrega una inicial: “Ana M.” y “Ana R.”.
+      </p>
+    </div>
+  );
+}
