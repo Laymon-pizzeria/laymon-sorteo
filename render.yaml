@@ -1,0 +1,28 @@
+# Servicio APARTE de Track y de la web: su propio servidor, su propia base de datos y sus propias llaves.
+# Si algo falla aquí, no se entera ni Track ni laymonpizzeria.com.
+services:
+  - type: web
+    name: laymon-sorteo
+    runtime: node
+    plan: starter # el plan gratis se duerme tras 15 min sin visitas y el primer invitado esperaría ~1 min
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: SORTEO_BASE_URL
+        value: https://sorteo.laymonpizzeria.com
+      - key: ADMIN_KEY
+        generateValue: true
+      - key: SORTEO_SECRET
+        generateValue: true
+      - key: UPSTASH_REDIS_REST_URL
+        sync: false
+      - key: UPSTASH_REDIS_REST_TOKEN
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: SORTEO_REMITENTE
+        sync: false

@@ -1,0 +1,171 @@
+'use client';
+
+import Link from 'next/link';
+import { useState } from 'react';
+
+export const POSES = '/img/fantasma/poses';
+
+export const campo =
+  'w-full rounded-lm border border-[#d9d3cb] bg-white px-3 py-3 font-chelsea text-[16px] text-[#0C0B0B] outline-none placeholder:text-[#b3aca3] focus:border-lm-red';
+export const etiqueta = 'mb-1 block font-chelsea text-[11px] uppercase tracking-[0.12em] text-lm-gray';
+export const tarjeta = 'rounded-lm border border-lm-border bg-white p-5 shadow-lm-card';
+export const botonRojo =
+  'inline-block cursor-pointer rounded-lm border border-lm-black bg-lm-red px-5 py-3 font-brick text-[22px] uppercase leading-none text-white no-underline shadow-lm-card disabled:cursor-not-allowed disabled:opacity-50';
+export const botonLinea =
+  'inline-block cursor-pointer rounded-lm border border-lm-black bg-transparent px-4 py-[10px] font-chelsea text-[14px] leading-none text-lm-black no-underline disabled:cursor-not-allowed disabled:opacity-50';
+
+/** Habla con la API del sorteo; los errores llegan ya en español. */
+export async function api<T = Record<string, unknown>>(ruta: string, opciones: { metodo?: string; cuerpo?: unknown; token?: string | null } = {}): Promise<T> {
+  let r: Response;
+  try {
+    r = await fetch(`/api/sorteo/${ruta}`, {
+      method: opciones.metodo ?? (opciones.cuerpo === undefined ? 'GET' : 'POST'),
+      headers: { 'content-type': 'application/json', ...(opciones.token ? { 'x-sorteo-token': opciones.token } : {}) },
+      body: opciones.cuerpo === undefined ? undefined : JSON.stringify(opciones.cuerpo),
+      cache: 'no-store',
+    });
+  } catch {
+    throw new Error('Sin conexión. Revisa tu internet e inténtalo otra vez.');
+  }
+  const j = (await r.json().catch(() => ({}))) as T & { error?: string };
+  if (!r.ok) throw new Error(j.error || 'Algo salió mal. Inténtalo otra vez.');
+  return j;
+}
+
+export const guardarLocal = (k: string, v: string | null) => {
+  try {
+    if (v === null) localStorage.removeItem(k);
+    else localStorage.setItem(k, v);
+  } catch {
+    /* sin almacenamiento: la sesión dura lo que dure la pestaña */
+  }
+};
+export const leerLocal = (k: string): string | null => {
+  try {
+    return localStorage.getItem(k);
+  } catch {
+    return null;
+  }
+};
+
+export const pesos = (n: number) => `$${n.toLocaleString('es-MX')}`;
+
+/** Marco común: papel blanco, logo que regresa al inicio del sorteo y un fantasma que baila. */
+export function Marco({ titulo, subtitulo, pose = 'paseo', baila = true, children }: { titulo: React.ReactNode; subtitulo?: React.ReactNode; pose?: string; baila?: boolean; children: React.ReactNode }) {
+  return (
+    <main className="mx-auto min-h-screen max-w-[640px] px-4 pb-16 pt-6">
+      <Link href="/" aria-label="Sorteo de intercambio Laymon, inicio">
+        <img src="/img/laymon-rojo.svg" alt="Laymon" className="h-[52px] w-auto" />
+      </Link>
+      <div className="mt-6 flex items-end justify-between gap-3">
+        <h1 className="m-0 font-brick text-[44px] font-normal leading-[0.92] sm:text-[56px]">{titulo}</h1>
+        <img src={`${POSES}/${pose}.png`} alt="" aria-hidden="true" className={`-mb-1 h-[104px] w-auto shrink-0 sm:h-[130px] ${baila ? 'sorteo-baila' : ''}`} />
+      </div>
+      {subtitulo && <p className="m-0 mt-3 max-w-[480px] font-chelsea text-[16px] leading-snug text-lm-gray">{subtitulo}</p>}
+      <div className="mt-6 grid gap-4">{children}</div>
+      <p className="m-0 mt-10 text-center font-chelsea text-[11px] uppercase tracking-[0.12em] text-lm-gray">
+        Fire food · Respect the dough · And Rock and Roll ·{' '}
+        <Link href="/privacidad" className="text-lm-gray underline">
+          Aviso de privacidad
+        </Link>
+      </p>
+    </main>
+  );
+}
+
+export function Aviso({ tipo = 'error', children }: { tipo?: 'error' | 'ok' | 'alerta'; children: React.ReactNode }) {
+  const colores = tipo === 'ok' ? 'border-[#2c8a4b] bg-[#eef8f1] text-[#1d6334]' : tipo === 'alerta' ? 'border-[#d99a1a] bg-[#fff6e0] text-[#7a5200]' : 'border-lm-red bg-[#fdecef] text-[#a8132b]';
+  return (
+    <p role={tipo === 'error' ? 'alert' : 'status'} className={`m-0 rounded-lm border px-4 py-3 font-chelsea text-[14px] leading-snug ${colores}`}>
+      {children}
+    </p>
+  );
+}
+
+export function Copiar({ texto, etiqueta: nombre = 'Copiar' }: { texto: string; etiqueta?: string }) {
+  const [hecho, setHecho] = useState(false);
+  return (
+    <button
+      type="button"
+      className={botonLinea}
+      onClick={() => {
+        void navigator.clipboard?.writeText(texto).then(() => {
+          setHecho(true);
+          setTimeout(() => setHecho(false), 1600);
+        });
+      }}
+    >
+      {hecho ? 'Copiado' : nombre}
+    </button>
+  );
+}
+
+export const GENEROS = ['Mujer', 'Hombre', 'No binario u otro', 'Prefiero no decirlo'];
+
+export interface Regla {
+  de: string;
+  a: string;
+  ambos: boolean;
+}
+
+/** Reglas del tipo "Ana no le puede regalar a Beto". Trabaja con nombres de la lista. */
+export function ReglasEditor({ nombres, reglas, onChange, bloqueado }: { nombres: string[]; reglas: Regla[]; onChange: (r: Regla[]) => void; bloqueado?: boolean }) {
+  const [de, setDe] = useState('');
+  const [a, setA] = useState('');
+  const [ambos, setAmbos] = useState(true);
+  const agregar = () => {
+    if (!de || !a || de === a) return;
+    onChange([...reglas, { de, a, ambos }]);
+    setDe('');
+    setA('');
+  };
+  return (
+    <div>
+      <span className={etiqueta}>Reglas de exclusión (opcional)</span>
+      <p className="m-0 mb-2 font-chelsea text-[13px] leading-snug text-lm-gray">Por ejemplo: que a una pareja no le toque la otra persona.</p>
+      {reglas.length > 0 && (
+        <ul className="m-0 mb-3 grid list-none gap-2 p-0">
+          {reglas.map((r, i) => (
+            <li key={`${r.de}>${r.a}`} className="flex items-center justify-between gap-2 rounded-lm border border-lm-border bg-white px-3 py-2 font-chelsea text-[14px]">
+              <span>
+                {r.de} no le puede regalar a {r.a}
+                {r.ambos ? ' (ni al revés)' : ''}
+              </span>
+              {!bloqueado && (
+                <button type="button" aria-label="Quitar regla" onClick={() => onChange(reglas.filter((_, j) => j !== i))} className="cursor-pointer border-0 bg-transparent font-chelsea text-[18px] text-lm-red">
+                  ×
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {!bloqueado && (
+        <div className="grid gap-2 rounded-lm border border-dashed border-[#d9d3cb] p-3">
+          <div className="grid grid-cols-2 gap-2">
+            <select aria-label="Quién da" value={de} onChange={(e) => setDe(e.target.value)} className={campo}>
+              <option value="">Quién…</option>
+              {nombres.map((n) => (
+                <option key={n}>{n}</option>
+              ))}
+            </select>
+            <select aria-label="A quién no" value={a} onChange={(e) => setA(e.target.value)} className={campo}>
+              <option value="">no le regala a…</option>
+              {nombres.filter((n) => n !== de).map((n) => (
+                <option key={n}>{n}</option>
+              ))}
+            </select>
+          </div>
+          <label className="flex items-center gap-2 font-chelsea text-[13px]">
+            <input type="checkbox" checked={ambos} onChange={(e) => setAmbos(e.target.checked)} /> También al revés
+          </label>
+          <button type="button" onClick={agregar} disabled={!de || !a} className={botonLinea}>
+            Agregar regla
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+export const nombresDeTexto = (t: string) => t.split('\n').map((x) => x.replace(/\s+/g, ' ').trim()).filter(Boolean);

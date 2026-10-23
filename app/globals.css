@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@font-face {
+  font-family: 'Brick';
+  src: url('/fonts/Brick.woff') format('woff');
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: #fffdfa;
+  color: #141414;
+  font-family: 'Chelsea Market', cursive, -apple-system, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+  max-width: 100%;
+}
+
+html {
+  accent-color: #ea1d3b;
+  scrollbar-color: #ea1d3b transparent;
+}
+
+@keyframes sorteo-baila {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50% { transform: translateY(-14px) rotate(4deg); }
+}
+.sorteo-baila { animation: sorteo-baila 1.8s ease-in-out infinite; transform-origin: 50% 90%; }
+@keyframes sorteo-pop {
+  0% { transform: scale(0.82) rotate(-3deg); opacity: 0; }
+  60% { transform: scale(1.06) rotate(1deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+.sorteo-pop { animation: sorteo-pop 0.5s ease-out both; }
+@media (prefers-reduced-motion: reduce) {
+  .sorteo-baila, .sorteo-pop { animation: none; }
+}
