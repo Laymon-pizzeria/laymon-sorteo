@@ -144,7 +144,7 @@ export default function Admin() {
 
         <section className={tarjeta}>
           <div className="flex items-center justify-between gap-3">
-            <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Sorteos</h2>
+            <h2 className="m-0 font-chelsea text-[21px] font-normal leading-tight">Sorteos</h2>
             <button className={botonLinea} onClick={bajarContactos}>Bajar contactos (CSV)</button>
           </div>
           {filas === null ? (
@@ -170,7 +170,7 @@ export default function Admin() {
         </section>
 
         <section className={tarjeta}>
-          <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Crear sorteo para un evento</h2>
+          <h2 className="m-0 font-chelsea text-[21px] font-normal leading-tight">Crear sorteo para un evento</h2>
           <p className="m-0 mt-2 font-chelsea text-[13px] leading-snug text-lm-gray">Le das al organizador el número y la clave. Él mete a sus invitados y ellos se registran en el enlace.</p>
           {creado && (
             <div className="mt-3 grid gap-2">

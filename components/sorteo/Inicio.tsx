@@ -11,7 +11,7 @@ export default function Inicio() {
   return (
     <Marco titulo={<>Sorteo de<br /><span className="text-lm-red">intercambio</span></>} pose="navidad" subtitulo="Regala sin spoilers. Cada quien saca su nombre en su celular, con su lista de deseos y el límite de gasto, y nadie ve lo que no le toca.">
       <div className={`${tarjeta} grid gap-3`}>
-        <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Quiero organizar un sorteo</h2>
+        <h2 className="m-0 font-chelsea text-[21px] font-normal leading-tight">Quiero organizar un sorteo</h2>
         <p className="m-0 font-chelsea text-[14px] leading-snug text-lm-gray">Para tu posada, tu familia o tu oficina. Pones los nombres, las reglas y el límite de gasto. Es gratis.</p>
         <Link href="/nuevo" className={`${botonLinea} text-center`}>Crear mi sorteo</Link>
       </div>
@@ -23,10 +23,10 @@ export default function Inicio() {
           if (n) router.push(`/${n}`);
         }}
       >
-        <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Ya tengo un folio de evento</h2>
+        <h2 className="m-0 font-chelsea text-[21px] font-normal leading-tight">Ya tengo un folio de evento</h2>
         <label>
           <span className={etiqueta}>Folio del evento</span>
-          <input className={`${campo} text-center font-brick text-[28px] uppercase tracking-[0.2em]`} value={numero} onChange={(e) => setNumero(e.target.value)} maxLength={12} autoCapitalize="characters" autoComplete="off" placeholder="K7MQ4X" />
+          <input className={`${campo} text-center font-chelsea text-[26px] uppercase tracking-[0.25em]`} value={numero} onChange={(e) => setNumero(e.target.value)} maxLength={12} autoCapitalize="characters" autoComplete="off" placeholder="K7MQ4X" />
         </label>
         <button className={botonRojo} disabled={!numero.trim()}>Entrar</button>
       </form>

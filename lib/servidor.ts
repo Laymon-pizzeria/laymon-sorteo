@@ -11,16 +11,23 @@ export function fijarOrigenSorteo(req: Request): void {
   if (host) g.__sorteoOrigen = `${host.startsWith('localhost') ? 'http' : 'https'}://${host}`;
 }
 
-async function enviar(para: string, asunto: string, texto: string): Promise<{ ok: boolean; detalle: string }> {
+async function enviar(para: string, asunto: string, texto: string, html?: string): Promise<{ ok: boolean; detalle: string }> {
   const c = getConfig();
   if (!c.resendKey) {
     if (process.env.NODE_ENV !== 'production') {
       console.log(`[sorteo] (sin Resend) correo para ${para}: ${asunto}\n${texto}`);
+      if (html) {
+        // En desarrollo el HTML queda en una carpeta temporal para verlo en el navegador
+        const { mkdirSync, writeFileSync } = await import('node:fs');
+        const dir = `${(await import('node:os')).tmpdir()}/laymon-sorteo-correos`;
+        mkdirSync(dir, { recursive: true });
+        writeFileSync(`${dir}/${Date.now()}.html`, html);
+      }
       return { ok: true, detalle: 'consola' };
     }
     return { ok: false, detalle: 'Falta RESEND_API_KEY' };
   }
-  return enviarCorreo(c.resendKey, c.remitente, para, asunto, texto).catch((e: Error) => ({ ok: false, detalle: e.message }));
+  return enviarCorreo(c.resendKey, c.remitente, para, asunto, texto, html).catch((e: Error) => ({ ok: false, detalle: e.message }));
 }
 
 function crearStore(): Store {

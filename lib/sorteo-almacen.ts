@@ -17,6 +17,7 @@ import {
   type Exclusion,
   type Persona,
 } from './sorteo';
+import { correoHtml, esc } from './plantilla-correo';
 import type { Store } from './store';
 
 export interface Invitado {
@@ -54,7 +55,7 @@ export interface Sorteo {
 export type Resultado<T> = ({ ok: true } & T) | { ok: false; error: string; status: number };
 const fallo = (status: number, error: string): { ok: false; error: string; status: number } => ({ ok: false, status, error });
 
-type EnviarCorreo = (para: string, asunto: string, texto: string) => Promise<{ ok: boolean; detalle: string }>;
+type EnviarCorreo = (para: string, asunto: string, texto: string, html?: string) => Promise<{ ok: boolean; detalle: string }>;
 
 export interface DepsSorteo {
   store: Store;
@@ -152,6 +153,13 @@ export function crearSorteos(deps: DepsSorteo) {
       correo,
       `Tu código de Laymon: ${codigo}`,
       `${titulo}\n\nTu código es: ${codigo}\n\nVale 15 minutos. Si tú no lo pediste, ignora este correo y no pasa nada.\n\nLaymon Pizzería Artesanal`,
+      correoHtml({
+        baseUrl: deps.baseUrl(),
+        vistaPrevia: `Tu código es ${codigo}. Vale 15 minutos.`,
+        titulo: 'Tu código',
+        pose: 'ollie',
+        bloques: [{ parrafo: esc(titulo) }, { codigo }, { parrafo: `<span style="color:#6B6B6B;font-size:14px;">Vale 15 minutos. Si tú no lo pediste, ignora este correo y no pasa nada.</span>` }],
+      }),
     );
     if (!r.ok) {
       console.warn('[sorteo] no se pudo mandar el correo:', r.detalle);
@@ -232,6 +240,18 @@ export function crearSorteos(deps: DepsSorteo) {
         s.organizador.correo,
         `Tu sorteo "${s.nombre}" está listo`,
         `Hola ${s.organizador.nombreCompleto.split(' ')[0]},\n\nTu sorteo de intercambio está listo.\n\nNúmero de sorteo: ${s.numero}\nClave de organizador: ${clave}\nEnlace para tus invitados: ${enlace}\n\nMándales el enlace para que cada quien se registre y saque su nombre. Con tu clave entras a organizar en ${enlace}/organizador\n\nGuarda este correo: la clave solo se manda una vez.\n\nLaymon Pizzería Artesanal`,
+        correoHtml({
+          baseUrl: deps.baseUrl(),
+          vistaPrevia: `Número ${s.numero}. Guarda tu clave de organizador.`,
+          titulo: `${s.organizador.nombreCompleto.split(' ')[0]}, tu sorteo está listo`,
+          pose: 'navidad',
+          bloques: [
+            { parrafo: `<b>${esc(s.nombre)}</b> ya tiene número. Guarda este correo: la clave solo se manda una vez.` },
+            { datos: [{ etiqueta: 'Número', valor: s.numero }, { etiqueta: 'Tu clave', valor: clave, rojo: true }] },
+            { parrafo: `Manda este enlace a tus invitados para que cada quien se registre y saque su nombre:<br><a href="${esc(enlace)}" style="color:#EA1D3B;">${esc(enlace)}</a>` },
+            { boton: { texto: 'Abrir mi panel', url: `${enlace}/organizador` } },
+          ],
+        }),
       )
       .catch(() => undefined);
   }
@@ -576,10 +596,30 @@ export function crearSorteos(deps: DepsSorteo) {
     const resumen = faltanRegistro.length + faltanSortear.length === 0
       ? '¡Ya sortearon todos! Cada quien tiene su nombre.'
       : `Registrados que todavía no sortean (${faltanSortear.length}): ${faltanSortear.join(', ') || 'ninguno'}.\nSin registrarse aún (${faltanRegistro.length}): ${faltanRegistro.join(', ') || 'ninguno'}.`;
+    const enlace = `${deps.baseUrl()}/${s.numero}`;
+    const todos = faltanRegistro.length + faltanSortear.length === 0;
     await deps.enviar(
       s.organizador.correo,
       `${nombreDe(s, quien)} ya sacó su nombre en "${s.nombre}"`,
-      `${nombreDe(s, quien)} ya sorteó. Van ${yaSortearon.size} de ${s.espacios.length}.\n\n${resumen}\n\nPuedes recordarles con tu enlace: ${deps.baseUrl()}/${s.numero}\n\nNo te mandamos quién le tocó a quién: así se conserva la magia.\n\nLaymon Pizzería Artesanal`,
+      `${nombreDe(s, quien)} ya sorteó. Van ${yaSortearon.size} de ${s.espacios.length}.\n\n${resumen}\n\nPuedes recordarles con tu enlace: ${enlace}\n\nNo te mandamos quién le tocó a quién: así se conserva la magia.\n\nLaymon Pizzería Artesanal`,
+      correoHtml({
+        baseUrl: deps.baseUrl(),
+        vistaPrevia: `Van ${yaSortearon.size} de ${s.espacios.length} en ${s.nombre}.`,
+        titulo: todos ? '¡Ya sortearon todos!' : `${nombreDe(s, quien)} ya sacó su nombre`,
+        pose: todos ? 'tabla-en-alto' : 'kickflip',
+        bloques: [
+          { datos: [{ etiqueta: s.nombre, valor: `${yaSortearon.size} de ${s.espacios.length}`, rojo: todos }] },
+          ...(todos
+            ? [{ parrafo: 'Cada quien tiene su nombre. Ahora sí: a comprar regalos.' }]
+            : [
+                ...(faltanSortear.length ? [{ lista: { titulo: `Registrados que no sortean (${faltanSortear.length})`, elementos: faltanSortear } }] : []),
+                ...(faltanRegistro.length ? [{ lista: { titulo: `Sin registrarse (${faltanRegistro.length})`, elementos: faltanRegistro } }] : []),
+                { parrafo: `Recuérdales con tu enlace: <a href="${esc(enlace)}" style="color:#EA1D3B;">${esc(enlace)}</a>` },
+              ]),
+          { boton: { texto: 'Ver mi panel', url: `${enlace}/organizador` } },
+          { parrafo: '<span style="color:#6B6B6B;font-size:14px;">No te mandamos quién le tocó a quién: así se conserva la magia.</span>' },
+        ],
+      }),
     );
   }
 }

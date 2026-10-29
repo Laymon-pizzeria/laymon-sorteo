@@ -10,7 +10,7 @@ export const campo =
 export const etiqueta = 'mb-1 block font-chelsea text-[11px] uppercase tracking-[0.12em] text-lm-gray';
 export const tarjeta = 'rounded-lm border border-lm-border bg-white p-5 shadow-lm-card';
 export const botonRojo =
-  'inline-block cursor-pointer rounded-lm border border-lm-black bg-lm-red px-5 py-3 font-brick text-[22px] uppercase leading-none text-white no-underline shadow-lm-card disabled:cursor-not-allowed disabled:opacity-50';
+  'inline-block cursor-pointer rounded-lm border border-lm-black bg-lm-red px-5 py-[14px] font-chelsea text-[17px] leading-none text-white no-underline shadow-lm-card disabled:cursor-not-allowed disabled:opacity-50';
 export const botonLinea =
   'inline-block cursor-pointer rounded-lm border border-lm-black bg-transparent px-4 py-[10px] font-chelsea text-[14px] leading-none text-lm-black no-underline disabled:cursor-not-allowed disabled:opacity-50';
 
@@ -38,6 +38,22 @@ export const guardarLocal = (k: string, v: string | null) => {
     else localStorage.setItem(k, v);
   } catch {
     /* sin almacenamiento: la sesión dura lo que dure la pestaña */
+  }
+};
+/** Solo dura lo que la pestaña: para enseñar la clave una vez al crear el sorteo. */
+export const guardarSesion = (k: string, v: string | null) => {
+  try {
+    if (v === null) sessionStorage.removeItem(k);
+    else sessionStorage.setItem(k, v);
+  } catch {
+    /* sin almacenamiento: la clave igual llega por correo */
+  }
+};
+export const leerSesion = (k: string): string | null => {
+  try {
+    return sessionStorage.getItem(k);
+  } catch {
+    return null;
   }
 };
 export const leerLocal = (k: string): string | null => {
@@ -196,8 +212,27 @@ export function CampoPresupuesto({ valor, onChange }: { valor: string; onChange:
   );
 }
 
-/** Enlace para invitados: siempre el dominio desde el que se está usando la página (nunca queda roto). */
-export const enlaceInvitado = (numero: string) => (typeof window === 'undefined' ? `/${numero}` : `${window.location.origin}/${numero}`);
+/** Código de 6 números del correo. Al completar el sexto número se manda solo: un toque menos. */
+export function CampoCodigo({ valor, onChange, onCompleto, disabled }: { valor: string; onChange: (v: string) => void; onCompleto: (v: string) => void; disabled?: boolean }) {
+  return (
+    <input
+      className={`${campo} text-center text-[28px] tracking-[0.35em]`}
+      inputMode="numeric"
+      autoComplete="one-time-code"
+      maxLength={6}
+      value={valor}
+      disabled={disabled}
+      onChange={(e) => {
+        const v = e.target.value.replace(/\D/g, '').slice(0, 6);
+        onChange(v);
+        if (v.length === 6 && v !== valor) onCompleto(v);
+      }}
+      aria-label="Código de 6 números"
+      placeholder="••••••"
+      autoFocus
+    />
+  );
+}
 
 export interface InvitadoEditable {
   /** Identificador estable en pantalla (el id del lugar si ya existe) */
@@ -240,7 +275,7 @@ export function InvitadosEditor({ valor, onChange, bloqueado }: { valor: Invitad
           return (
             <li key={x.k} className="rounded-lm border border-lm-border bg-white p-2">
               <div className="flex items-center gap-2">
-                <span aria-hidden="true" className="w-6 text-center font-brick text-[18px] text-lm-gray">{i + 1}</span>
+                <span aria-hidden="true" className="w-6 text-center font-chelsea text-[15px] text-lm-gray">{i + 1}</span>
                 <input className={campo} value={x.nombre} onChange={(e) => cambiar(x.k, (y) => ({ ...y, nombre: e.target.value.slice(0, 40) }))} placeholder={['Ana', 'Beto', 'Carla'][i] ?? 'Nombre del invitado'} aria-label={`Invitado ${i + 1}`} disabled={bloqueado} autoComplete="off" />
                 {!bloqueado && valor.length > 3 && (
                   <button type="button" aria-label={`Quitar a ${x.nombre || `invitado ${i + 1}`}`} onClick={() => quitar(x.k)} className="cursor-pointer border-0 bg-transparent px-2 font-chelsea text-[22px] leading-none text-lm-red">×</button>
