@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { Aviso, CampoFecha, CampoPresupuesto, Copiar, InvitadosEditor, Marco, api, botonLinea, botonRojo, campo, enlaceInvitado, etiqueta, guardarLocal, leerLocal, nombreRepetido, pesos, reglasDe, tarjeta, type InvitadoEditable } from './ui';
+import { Aviso, CampoFecha, CampoPresupuesto, CampoCodigo, Copiar, InvitadosEditor, Marco, api, botonLinea, botonRojo, campo, etiqueta, guardarLocal, guardarSesion, leerLocal, leerSesion, nombreRepetido, pesos, reglasDe, tarjeta, type InvitadoEditable } from './ui';
 
 interface Estado {
   numero: string;
@@ -18,6 +18,15 @@ interface Estado {
 }
 
 const llaveToken = (n: string) => `laymon-organizador-${n}`;
+/** Recién creado en esta pestaña: la clave se enseña una vez arriba del panel (y también llega por correo). */
+const llaveNuevo = (n: string) => `laymon-sorteo-nuevo-${n}`;
+const claveRecienCreada = (n: string): string | null => {
+  try {
+    return (JSON.parse(leerSesion(llaveNuevo(n)) ?? 'null') as { clave?: string } | null)?.clave ?? null;
+  } catch {
+    return null;
+  }
+};
 
 export default function Organizador({ numero }: { numero: string }) {
   const [token, setToken] = useState<string | null>(null);
@@ -35,6 +44,8 @@ export default function Organizador({ numero }: { numero: string }) {
   );
 
   useEffect(() => {
+    const nueva = claveRecienCreada(numero);
+    if (nueva) setClave(nueva);
     const t = leerLocal(llaveToken(numero));
     if (!t) return;
     setToken(t);
@@ -82,7 +93,7 @@ export default function Organizador({ numero }: { numero: string }) {
         >
           <label>
             <span className={etiqueta}>Clave de organizador</span>
-            <input className={`${campo} font-brick text-[24px] uppercase tracking-[0.2em]`} value={clave} onChange={(e) => setClave(e.target.value)} autoCapitalize="characters" autoComplete="off" required />
+            <input className={`${campo} font-chelsea text-[22px] uppercase tracking-[0.2em]`} value={clave} onChange={(e) => setClave(e.target.value)} autoCapitalize="characters" autoComplete="off" required />
           </label>
           <button className={botonRojo} disabled={ocupado}>{ocupado ? 'Entrando…' : 'Entrar'}</button>
           <Link href={`/${numero}`} className="text-center font-chelsea text-[13px] text-lm-gray underline">Volver al sorteo</Link>
@@ -96,7 +107,10 @@ export default function Organizador({ numero }: { numero: string }) {
 
 function Panel({ est, token, recargar, correr, ocupado, error, ok, setOk, salir }: { est: Estado; token: string; recargar: () => Promise<void>; correr: (fn: () => Promise<void>) => Promise<void>; ocupado: boolean; error: string; ok: string; setOk: (s: string) => void; salir: () => void }) {
   const base = `${est.numero}/org`;
-  const enlace = enlaceInvitado(est.numero);
+  // El enlace lo arma el servidor con el dominio propio (SORTEO_BASE_URL), igual que en los correos
+  const enlace = est.enlace;
+  const [claveNueva, setClaveNueva] = useState<string | null>(null);
+  useEffect(() => setClaveNueva(claveRecienCreada(est.numero)), [est.numero]);
   const [nombre, setNombre] = useState(est.nombre);
   const [fecha, setFecha] = useState(est.fecha);
   const [limite, setLimite] = useState(est.limite ? String(est.limite) : '');
@@ -109,6 +123,13 @@ function Panel({ est, token, recargar, correr, ocupado, error, ok, setOk, salir 
   const registrados = est.espacios.filter((e) => e.registrado).length;
   const sortearon = est.espacios.filter((e) => e.sorteo).length;
   const mensajeWa = `Hola, te invito a mi intercambio "${est.nombre}". Regístrate y saca tu nombre aquí: ${enlace} (número de sorteo ${est.numero})`;
+
+  const verRevelar = (c: string) =>
+    correr(async () => {
+      const r = await api<{ pares: { dador: string; receptor: string | null }[] }>(`${base}/revelar`, { cuerpo: { codigo: c }, token });
+      setPares(r.pares);
+      setCodigo('');
+    });
 
   const guardar = () =>
     correr(async () => {
@@ -129,8 +150,26 @@ function Panel({ est, token, recargar, correr, ocupado, error, ok, setOk, salir 
       {error && <Aviso>{error}</Aviso>}
       {ok && <Aviso tipo="ok">{ok}</Aviso>}
 
+      {claveNueva && (
+        <section className="sorteo-pop rounded-lm border border-lm-black bg-lm-black p-5 text-lm-paper shadow-lm-card">
+          <p className="m-0 font-chelsea text-[21px] leading-tight">¡Listo! Tu sorteo ya existe.</p>
+          <div className="mt-4 grid gap-3">
+            <div>
+              <p className="m-0 font-chelsea text-[11px] uppercase tracking-[0.12em] text-[#bdb6ad]">Número</p>
+              <p className="m-0 mt-1 font-chelsea text-[26px] leading-none tracking-[0.12em]">{est.numero}</p>
+            </div>
+            <div>
+              <p className="m-0 font-chelsea text-[11px] uppercase tracking-[0.12em] text-[#bdb6ad]">Tu clave</p>
+              <p className="m-0 mt-1 font-chelsea text-[26px] leading-none tracking-[0.12em] text-lm-red [overflow-wrap:anywhere]">{claveNueva}</p>
+            </div>
+          </div>
+          <p className="m-0 mt-4 font-chelsea text-[13px] leading-snug text-[#bdb6ad]">Te la mandamos también a tu correo. Con ella entras a este panel desde cualquier celular.</p>
+          <button type="button" className="mt-3 cursor-pointer border-0 bg-transparent p-0 font-chelsea text-[13px] text-lm-paper underline" onClick={() => { guardarSesion(llaveNuevo(est.numero), null); setClaveNueva(null); }}>Ya la guardé</button>
+        </section>
+      )}
+
       <section className={tarjeta}>
-        <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Invita a tu gente</h2>
+        <h2 className="m-0 font-chelsea text-[21px] font-normal leading-tight">Invita a tu gente</h2>
         <p className="m-0 mt-2 font-chelsea text-[13px] leading-snug text-lm-gray">Cada invitado se registra en este enlace, escribe su lista de deseos y saca su nombre.</p>
         <input readOnly className={`${campo} mt-3`} value={enlace} onFocus={(e) => e.currentTarget.select()} aria-label="Enlace para tus invitados" />
         <div className="mt-3 flex flex-wrap gap-2">
@@ -140,7 +179,7 @@ function Panel({ est, token, recargar, correr, ocupado, error, ok, setOk, salir 
       </section>
 
       <section className={tarjeta}>
-        <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Cómo va</h2>
+        <h2 className="m-0 font-chelsea text-[21px] font-normal leading-tight">Cómo va</h2>
         <p className="m-0 mt-2 font-chelsea text-[14px] text-lm-gray">
           {registrados} de {total} registrados · {sortearon} de {total} ya sortearon
         </p>
@@ -168,7 +207,7 @@ function Panel({ est, token, recargar, correr, ocupado, error, ok, setOk, salir 
       </section>
 
       <section className={tarjeta}>
-        <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Datos del sorteo</h2>
+        <h2 className="m-0 font-chelsea text-[21px] font-normal leading-tight">Datos del sorteo</h2>
         <div className="mt-3 grid gap-3">
           <label>
             <span className={etiqueta}>Nombre del evento</span>
@@ -191,7 +230,7 @@ function Panel({ est, token, recargar, correr, ocupado, error, ok, setOk, salir 
       </section>
 
       <section className={tarjeta}>
-        <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Ver quién le regala a quién</h2>
+        <h2 className="m-0 font-chelsea text-[21px] font-normal leading-tight">Ver quién le regala a quién</h2>
         <div className="mt-3 grid gap-3">
           <Aviso tipo="alerta">Ojo: si tú también participas en el intercambio, mejor no lo veas. Se pierde la magia. Para entrar te pedimos un código a tu correo ({est.organizador.correo}).</Aviso>
           {!pares && !codigoPedido && (
@@ -204,14 +243,10 @@ function Panel({ est, token, recargar, correr, ocupado, error, ok, setOk, salir 
               className="grid gap-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                void correr(async () => {
-                  const r = await api<{ pares: { dador: string; receptor: string | null }[] }>(`${base}/revelar`, { cuerpo: { codigo }, token });
-                  setPares(r.pares);
-                  setCodigo('');
-                });
+                void verRevelar(codigo);
               }}
             >
-              <input className={`${campo} text-center font-brick text-[26px] tracking-[0.3em]`} inputMode="numeric" maxLength={6} value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ''))} aria-label="Código de 6 números" />
+              <CampoCodigo valor={codigo} onChange={setCodigo} onCompleto={(c) => void verRevelar(c)} disabled={ocupado} />
               <button className={botonRojo} disabled={ocupado || codigo.length !== 6}>Ver la lista</button>
             </form>
           )}

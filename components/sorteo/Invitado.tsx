@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
-import { Aviso, GENEROS, Marco, api, botonLinea, botonRojo, campo, etiqueta, guardarLocal, leerLocal, pesos, tarjeta, fechaBonita } from './ui';
+import { Aviso, CampoCodigo, GENEROS, Marco, api, botonLinea, botonRojo, campo, etiqueta, guardarLocal, leerLocal, pesos, tarjeta, fechaBonita } from './ui';
 
 interface Info {
   nombre: string;
@@ -28,7 +28,7 @@ interface Revelado {
   fecha: string;
 }
 
-type Vista = 'cargando' | 'inicio' | 'registro' | 'entrar' | 'codigo' | 'panel' | 'noExiste';
+type Vista = 'cargando' | 'registro' | 'entrar' | 'codigo' | 'panel' | 'noExiste';
 const llaveToken = (n: string) => `laymon-sorteo-${n}`;
 
 export default function Invitado({ numero }: { numero: string }) {
@@ -67,7 +67,8 @@ export default function Invitado({ numero }: { numero: string }) {
             guardarLocal(llaveToken(numero), null);
           }
         }
-        setVista('inicio');
+        // Sin vueltas: el formulario de registro es lo primero que se ve (o el de entrar, si ya no quedan nombres)
+        setVista(i.libres.length > 0 ? 'registro' : 'entrar');
       })
       .catch(() => setVista('noExiste'));
   }, [numero, cargarYo]);
@@ -84,6 +85,15 @@ export default function Invitado({ numero }: { numero: string }) {
     }
   };
 
+  const verificar = (c: string) =>
+    void correr(async () => {
+      const r = await api<{ token: string }>(`${numero}/verificar`, { cuerpo: { tipo: tipoCodigo, correo: f.correo, codigo: c } });
+      guardarLocal(llaveToken(numero), r.token);
+      setToken(r.token);
+      setCodigo('');
+      await cargarYo(r.token);
+    });
+
   if (vista === 'cargando') return <Marco titulo="Sorteo" pose="paseo"><p className="m-0 font-chelsea text-lm-gray">Cargando…</p></Marco>;
   if (vista === 'noExiste' || !info) {
     return (
@@ -96,7 +106,7 @@ export default function Invitado({ numero }: { numero: string }) {
   const encabezado = (
     <div className={tarjeta}>
       <p className="m-0 font-chelsea text-[11px] uppercase tracking-[0.12em] text-lm-gray">Sorteo {numero}</p>
-      <h2 className="m-0 mt-1 font-brick text-[30px] font-normal leading-none">{info.nombre}</h2>
+      <h2 className="m-0 mt-1 font-chelsea text-[24px] font-normal leading-tight">{info.nombre}</h2>
       <p className="m-0 mt-2 font-chelsea text-[14px] text-lm-gray">
         {info.fecha ? `${fechaBonita(info.fecha)} · ` : ''}
         {info.limite ? `Regalo de hasta ${pesos(info.limite)}` : 'Sin límite de gasto'}
@@ -106,7 +116,7 @@ export default function Invitado({ numero }: { numero: string }) {
 
   // ---------- Panel del invitado ----------
   if (vista === 'panel' && yo && token) {
-    return <Panel numero={numero} token={token} yo={yo} recargar={() => cargarYo(token)} salir={() => { guardarLocal(llaveToken(numero), null); setToken(null); setYo(null); setVista('inicio'); }} />;
+    return <Panel numero={numero} token={token} yo={yo} recargar={() => cargarYo(token)} salir={() => { guardarLocal(llaveToken(numero), null); setToken(null); setYo(null); setVista(info.libres.length > 0 ? 'registro' : 'entrar'); }} />;
   }
 
   // ---------- Código del correo ----------
@@ -118,19 +128,10 @@ export default function Invitado({ numero }: { numero: string }) {
           className="grid gap-3"
           onSubmit={(e) => {
             e.preventDefault();
-            void correr(async () => {
-              const r = await api<{ token: string }>(`${numero}/verificar`, { cuerpo: { tipo: tipoCodigo, correo: f.correo, codigo } });
-              guardarLocal(llaveToken(numero), r.token);
-              setToken(r.token);
-              setCodigo('');
-              await cargarYo(r.token);
-            });
+            verificar(codigo);
           }}
         >
-          <label>
-            <span className={etiqueta}>Código</span>
-            <input className={`${campo} text-center font-brick text-[28px] tracking-[0.3em]`} inputMode="numeric" autoComplete="one-time-code" maxLength={6} value={codigo} onChange={(e) => setCodigo(e.target.value.replace(/\D/g, ''))} autoFocus />
-          </label>
+          <CampoCodigo valor={codigo} onChange={setCodigo} onCompleto={verificar} disabled={ocupado} />
           <button className={botonRojo} disabled={ocupado || codigo.length !== 6}>{ocupado ? 'Revisando…' : 'Entrar'}</button>
           <button type="button" className={botonLinea} onClick={() => { setError(''); setVista(tipoCodigo === 'registro' ? 'registro' : 'entrar'); }}>Cambiar mis datos</button>
         </form>
@@ -142,6 +143,7 @@ export default function Invitado({ numero }: { numero: string }) {
   if (vista === 'entrar') {
     return (
       <Marco titulo={<>Ya me<br />registré</>} pose="equilibrio" subtitulo="Escribe el correo con el que te registraste y te mandamos un código para entrar.">
+        {encabezado}
         {error && <Aviso>{error}</Aviso>}
         <form
           className="grid gap-3"
@@ -159,7 +161,7 @@ export default function Invitado({ numero }: { numero: string }) {
             <input className={campo} type="email" autoComplete="email" value={f.correo} onChange={(e) => setF({ ...f, correo: e.target.value })} required />
           </label>
           <button className={botonRojo} disabled={ocupado}>{ocupado ? 'Mandando…' : 'Mandar código'}</button>
-          <button type="button" className={botonLinea} onClick={() => { setError(''); setVista('inicio'); }}>Volver</button>
+          {info.libres.length > 0 && <button type="button" className={botonLinea} onClick={() => { setError(''); setVista('registro'); }}>Todavía no me registro</button>}
         </form>
       </Marco>
     );
@@ -169,8 +171,9 @@ export default function Invitado({ numero }: { numero: string }) {
   if (vista === 'registro') {
     const listo = f.espacio && f.nombreCompleto && f.edad && f.genero && f.correo && f.telefono && f.aviso;
     return (
-      <Marco titulo={<>Regístrate</>} pose="kickflip" subtitulo="Con estos datos entras al sorteo. Solo los usamos como dice el aviso de privacidad.">
+      <Marco titulo={<>Tu intercambio<br /><span className="text-lm-red">te espera</span></>} pose="paseo" subtitulo="Regístrate, escribe tu lista de deseos y saca el nombre de a quién le regalas. Todo desde aquí.">
         {encabezado}
+        <button type="button" className="cursor-pointer justify-self-start border-0 bg-transparent p-0 font-chelsea text-[14px] text-lm-black underline decoration-lm-red underline-offset-4" onClick={() => { setError(''); setVista('entrar'); }}>¿Ya te registraste? Entra con tu correo</button>
         {error && <Aviso>{error}</Aviso>}
         <form
           className="grid gap-3"
@@ -226,54 +229,45 @@ export default function Invitado({ numero }: { numero: string }) {
             </span>
           </label>
           <button className={botonRojo} disabled={ocupado || !listo}>{ocupado ? 'Mandando…' : 'Mandar código a mi correo'}</button>
-          <button type="button" className={botonLinea} onClick={() => { setError(''); setVista('inicio'); }}>Volver</button>
+          <Link href={`/${numero}/organizador`} className="text-center font-chelsea text-[13px] text-lm-gray underline">Soy el organizador</Link>
         </form>
       </Marco>
     );
   }
 
-  // ---------- Inicio ----------
-  return (
-    <Marco titulo={<>Tu intercambio<br /><span className="text-lm-red">te espera</span></>} pose="paseo" subtitulo="Regístrate con tus datos, escribe tu lista de deseos y saca el nombre de la persona a quien le vas a regalar.">
-      {encabezado}
-      <div className="grid gap-3">
-        {info.libres.length > 0 ? (
-          <button className={botonRojo} onClick={() => { setError(''); setVista('registro'); }}>Registrarme</button>
-        ) : (
-          <Aviso tipo="alerta">Ya están todos los nombres de la lista registrados.</Aviso>
-        )}
-        <button className={botonLinea} onClick={() => { setError(''); setVista('entrar'); }}>Ya me registré</button>
-        <Link href={`/${numero}/organizador`} className="text-center font-chelsea text-[13px] text-lm-gray underline">Soy el organizador</Link>
-      </div>
-    </Marco>
-  );
+  return null;
 }
 
 function Panel({ numero, token, yo, recargar, salir }: { numero: string; token: string; yo: Yo; recargar: () => Promise<void>; salir: () => void }) {
   const [deseos, setDeseos] = useState(yo.deseos);
   const [msg, setMsg] = useState<{ tipo: 'ok' | 'error'; texto: string } | null>(null);
-  const [confirmando, setConfirmando] = useState(false);
+  const [guardada, setGuardada] = useState(yo.deseos);
   const [ocupado, setOcupado] = useState(false);
   const [rev, setRev] = useState<Revelado | null>(null);
 
+  // La lista se guarda sola al salir del campo (y antes de sortear): no hay que acordarse de ningún botón
+  const guardarLista = async () => {
+    if (deseos === guardada) return;
+    await api(`${numero}/deseos`, { metodo: 'PUT', cuerpo: { deseos }, token });
+    setGuardada(deseos);
+  };
   const guardar = async () => {
-    setOcupado(true);
     try {
-      await api(`${numero}/deseos`, { metodo: 'PUT', cuerpo: { deseos }, token });
-      setMsg({ tipo: 'ok', texto: 'Lista guardada. Quien te toque la verá.' });
+      await guardarLista();
+      setMsg(null);
     } catch (e) {
       setMsg({ tipo: 'error', texto: (e as Error).message });
-    } finally {
-      setOcupado(false);
     }
   };
 
+  // Un toque: guarda la lista, saca el nombre y lo enseña de una vez (el ojito queda para esconderlo)
   const sortear = async () => {
     setOcupado(true);
     setMsg(null);
     try {
+      await guardarLista();
       await api(`${numero}/sortear`, { cuerpo: {}, token });
-      setConfirmando(false);
+      setRev(await api<Revelado>(`${numero}/revelar`, { cuerpo: {}, token }));
       await recargar();
     } catch (e) {
       setMsg({ tipo: 'error', texto: (e as Error).message });
@@ -294,40 +288,32 @@ function Panel({ numero, token, yo, recargar, salir }: { numero: string; token: 
   };
 
   return (
-    <Marco titulo={<>Hola,<br /><span className="text-lm-red">{yo.nombre}</span></>} pose={yo.yaSorteo ? 'tabla-en-alto' : 'equilibrio'} subtitulo={`${yo.evento}${yo.fecha ? ` · ${fechaBonita(yo.fecha)}` : ''}`}>
+    <Marco titulo={<span className="block font-chelsea text-[40px] leading-[1.05] sm:text-[48px]">Hola,<br /><span className="text-lm-red">{yo.nombre}</span></span>} pose={yo.yaSorteo ? 'tabla-en-alto' : 'equilibrio'} subtitulo={`${yo.evento}${yo.fecha ? ` · ${fechaBonita(yo.fecha)}` : ''}`}>
       {msg && <Aviso tipo={msg.tipo}>{msg.texto}</Aviso>}
 
       <section className={tarjeta}>
-        <h2 className="m-0 font-brick text-[26px] font-normal leading-none">Tu lista de deseos</h2>
+        <h2 className="m-0 font-chelsea text-[21px] font-normal leading-tight">Tu lista de deseos</h2>
         <p className="m-0 mt-2 font-chelsea text-[13px] leading-snug text-lm-gray">Una idea por renglón (máximo 8). Solo la ve la persona que te toque.</p>
-        <textarea className={`${campo} mt-3 min-h-[120px]`} rows={5} maxLength={900} value={deseos} onChange={(e) => setDeseos(e.target.value)} placeholder={'Un termo\nChocolates\nUn libro de cocina'} />
-        <button className={`${botonLinea} mt-3`} onClick={guardar} disabled={ocupado}>Guardar mi lista</button>
+        <textarea className={`${campo} mt-3 min-h-[120px]`} rows={5} maxLength={900} value={deseos} onChange={(e) => setDeseos(e.target.value)} onBlur={() => void guardar()} placeholder={'Un termo\nChocolates\nUn libro de cocina'} aria-label="Tu lista de deseos" />
+        <p className="m-0 mt-2 font-chelsea text-[12px] text-lm-gray" aria-live="polite">{deseos === guardada ? (guardada ? '✓ Guardada' : '') : 'Se guarda sola al terminar de escribir.'}</p>
       </section>
 
       <section className={tarjeta}>
-        <h2 className="m-0 font-brick text-[26px] font-normal leading-none">A quién le regalas</h2>
+        <h2 className="m-0 font-chelsea text-[21px] font-normal leading-tight">A quién le regalas</h2>
         {!yo.yaSorteo ? (
           <>
             <p className="m-0 mt-2 font-chelsea text-[14px] leading-snug text-lm-gray">
-              Se saca una sola vez y ya no se puede repetir. {yo.limite ? `Recuerda: regalo de hasta ${pesos(yo.limite)}.` : ''}
+              Se saca una sola vez y no se repite. {yo.limite ? `Recuerda: regalo de hasta ${pesos(yo.limite)}.` : ''}
             </p>
-            {!confirmando ? (
-              <button className={`${botonRojo} mt-4 w-full`} onClick={() => setConfirmando(true)}>Sortear un nombre</button>
-            ) : (
-              <div className="mt-4 grid gap-2">
-                <Aviso tipo="alerta">¿Seguro? Una vez que lo saques ya no hay vuelta atrás.</Aviso>
-                <button className={botonRojo} onClick={sortear} disabled={ocupado}>{ocupado ? 'Sorteando…' : 'Sí, sortear'}</button>
-                <button className={botonLinea} onClick={() => setConfirmando(false)} disabled={ocupado}>Todavía no</button>
-              </div>
-            )}
+            <button className={`${botonRojo} mt-4 w-full`} onClick={() => void sortear()} disabled={ocupado}>{ocupado ? 'Sacando tu nombre…' : 'Sacar mi nombre'}</button>
           </>
         ) : (
           <div className="mt-3">
             <div className="flex items-center justify-between gap-3 rounded-lm border border-[#0C0B0B] bg-[#0C0B0B] px-4 py-4 text-[#FFFDFA]">
               {rev ? (
-                <span key={rev.nombre} className="sorteo-pop font-brick text-[38px] leading-none">{rev.nombre}</span>
+                <span key={rev.nombre} className="sorteo-pop font-chelsea text-[32px] leading-tight">{rev.nombre}</span>
               ) : (
-                <span aria-label="Nombre oculto" className="font-brick text-[38px] leading-none tracking-[0.18em]">••••••</span>
+                <span aria-label="Nombre oculto" className="font-chelsea text-[32px] leading-none tracking-[0.18em]">••••••</span>
               )}
               <button
                 type="button"
@@ -357,7 +343,7 @@ function Panel({ numero, token, yo, recargar, salir }: { numero: string; token: 
               <div className="sorteo-pop mt-4 grid gap-3">
                 <div className="rounded-lm border border-lm-border bg-lm-cream p-4">
                   <p className="m-0 font-chelsea text-[11px] uppercase tracking-[0.12em] text-lm-gray">Presupuesto</p>
-                  <p className="m-0 mt-1 font-brick text-[28px] leading-none">{rev.limite ? `Hasta ${pesos(rev.limite)}` : 'Sin límite de gasto'}</p>
+                  <p className="m-0 mt-1 font-chelsea text-[24px] leading-tight">{rev.limite ? `Hasta ${pesos(rev.limite)}` : 'Sin límite de gasto'}</p>
                   {rev.fecha && <p className="m-0 mt-2 font-chelsea text-[13px] text-lm-gray">Intercambio: {fechaBonita(rev.fecha)}</p>}
                 </div>
                 <div className="rounded-lm border border-lm-border bg-lm-cream p-4">

@@ -5,7 +5,7 @@ import { VERSION_AVISO } from '@/lib/sorteo';
 
 export const metadata: Metadata = { title: 'Aviso de privacidad | Laymon Pizzería Artesanal', robots: { index: false, follow: false } };
 
-const h2 = 'm-0 mt-7 font-brick text-[26px] font-normal leading-none';
+const h2 = 'm-0 mt-7 font-chelsea text-[21px] font-normal leading-tight';
 const p = 'm-0 mt-2 font-chelsea text-[15px] leading-[1.55]';
 
 /** Borrador del aviso de privacidad del sorteo (LFPDPPP). Pendiente de revisión legal antes de anunciarlo. */

@@ -324,3 +324,13 @@ describe('fecha y reparto', () => {
     expect(funcionPermitido([])('a', 'a')).toBe(false);
   });
 });
+
+describe('correos con diseño', () => {
+  it('el HTML escapa lo que escribe la gente y usa el dominio propio para las imágenes', async () => {
+    const { correoHtml } = await import('../lib/plantilla-correo');
+    const html = correoHtml({ baseUrl: 'https://sorteo.test/', vistaPrevia: 'x', titulo: '<b>Posada</b>', bloques: [{ datos: [{ etiqueta: 'Número', valor: 'ABC<1>' }] }, { lista: { titulo: 'Faltan', elementos: ['<script>'] } }] });
+    expect(html).not.toContain('<script>');
+    expect(html).toContain('&lt;b&gt;Posada&lt;/b&gt;');
+    expect(html).toContain('https://sorteo.test/img/correo/laymon.png');
+  });
+});
